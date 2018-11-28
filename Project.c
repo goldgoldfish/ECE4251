@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>		//needed for rand
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -18,83 +19,92 @@
 #include <pthread.h>	//needed for threads
 #include <time.h>		//needed for timer
 #include <sys/siginfo.h>//needed for timer
-
-#define SHMNAME "/my_shm"
-#define SEMNAME "/my_sem"
+#include <stdint.h>		//needed for unsigned int8
 
 #define SIZE 10
 
-// The following structure is overlaid on the shared memory.
-struct phu {
-	 sem_t s;
-	 char beginning_of_data[SIZE];
-} *p;
+uint8_t shmem1[SIZE];
+uint8_t shmem2[SIZE];
+uint8_t shmem3[SIZE];
+uint8_t collect1[SIZE];
+uint8_t collect2[SIZE];
 
-char *addr;
+uint8_t *shmem1_temp;
+uint8_t *shmem2_temp;
+uint8_t *shmem3_temp;
+uint8_t *collect1_temp;
+uint8_t *collect2_temp;
 
-int N = 0;
-int nbytes;
+sem_t m1;
+sem_t m2;
+sem_t m3;
+sem_t R3_rdy;
 
-void* collect1(void){
+void* collect1_task(void){
 	puts("Collect 1 Active\n");
-
-    if (sem_wait(&p->s) == -1) {
+    if (sem_wait(&m1) == -1) {
         printf("Sem_wait error.\n");
     } //end if
 
+    uint8_t temp = *collect1_temp;
+
     int i = 0;
     while(i < SIZE) {
-		addr[i] = 'A';
-		printf("C1 i = %d. N = %d.\n", i, N);
+		shmem1[i] = temp;
+		printf("C1 i = %d. shmem1 = %d.\n", i, *shmem1);
 		i++;
     } //end while
 
-    if (sem_post(&p->s) == -1) {
+    if (sem_post(&m1) == -1) {
         printf("Sem_post error.\n");
     } //end if
 
 	puts("Got into the memory\n");
 } //end collect1
 
-void* collect2(void){
+void* collect2_task(void){
 	puts("Collect 2 Active\n");
 
-    if (sem_wait(&p->s) == -1) {
+	uint8_t temp = *collect2_temp;
+
+    if (sem_wait(&m2) == -1) {
         printf("Sem_wait error.\n");
     } //end if
 
     int i = 0;
     while(i < SIZE) {
-		addr[i] = 'A';
-		printf("C2 i = %d. N = %d.\n", i, N);
+    	shmem2[i] = temp;
+		printf("C2 i = %d. shmem2 = %d.\n", i, *shmem2);
 		i++;
     } //end while
 
-    if (sem_post(&p->s) == -1) {
+    if (sem_post(&m2) == -1) {
         printf("Sem_post error.\n");
     } //end if
 
 	puts("Got into the memory\n");
 } //end collect1
 
-void* reader1(void){
+void* reader1_task(void){
 	puts("Reader 1 Active\n");
 } //end collect1
 
-void* reader2(void){
+void* reader2_task(void){
 	puts("Reader 2 Active\n");
 } //end collect1
 
-void* reader3(void){
+void* reader3_task(void){
 	puts("Reader 3 Active\n");
 } //end collect1
 
 
 int main(int argc, char *argv[]) {
 
-	int d, nbytes;
-
-    nbytes = sizeof(*p);
+	shmem1_temp = shmem1;
+	shmem2_temp = shmem2;
+	shmem3_temp = shmem3;
+	collect1_temp = collect1;
+	collect2_temp = collect2;
 
     struct timespec {
         long    tv_sec,
@@ -106,50 +116,58 @@ int main(int argc, char *argv[]) {
                         it_interval;
     };
 
-    it_value.tv_sec = 5;
-    it_value.tv_nsec = 500000000;
-    it_interval.tv_sec = 0;
-    it_interval.tv_nsec = 0;
+//    it_value.tv_sec = 5;
+//    it_value.tv_nsec = 500000000;
+//    it_interval.tv_sec = 0;
+//    it_interval.tv_nsec = 0;
 
     int timer_create (clockid_t clock_id, struct sigevent *event, timer_t *timerid);
 
-    // Create shared memory region.
-     if ((d = shm_open(SHMNAME, O_RDWR|O_CREAT|O_EXCL, 0666)) == -1) {
-          printf("Unable to open shared memory.\n");
-          exit(1);
-     } //end if
-
-     if (ftruncate(d, nbytes) != 0) {
-          close(d);
-          shm_unlink(SHMNAME);
-          printf("Unable to truncate.\n");
-          exit(1);
-     } //end if
-
-     p = (struct phu *)mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED, d, 0);
-     if(p == (struct phu *) -1) {
-          close(d);
-          printf("Unable to mmap.\n");
-          exit(1);
-     } //end if
-
-     shm_unlink(SHMNAME);
-
-     // Create semaphore.
-     if (sem_init(&p->s, 1, 1) == -1) {
+     // Create semaphore 1
+     if (sem_init(&m1, 1, 1) == -1) {
           printf("Sema init ERROR = %i.\n", errno);
           exit(1);
      } //end if
 
-     addr = p->beginning_of_data;
+     // Create semaphore 2
+     if (sem_init(&m2, 1, 1) == -1) {
+          printf("Sema init ERROR = %i.\n", errno);
+          exit(1);
+     } //end if
+
+     // Create semaphore 3
+     if (sem_init(&m3, 1, 1) == -1) {
+          printf("Sema init ERROR = %i.\n", errno);
+          exit(1);
+     } //end if
+
+     // Create semaphore 4
+     if (sem_init(&R3_rdy, 1, 1) == -1) {
+          printf("Sema init ERROR = %i.\n", errno);
+          exit(1);
+     } //end if
+
+    //Filling Collect1 & Collect2 with rand data
+
+    time_t t;
+    srand((unsigned) time(&t));
+
+    int i = 0;
+    while(i < SIZE){
+    	collect1[i] = rand();
+    	printf("Value put into collect1 is: %d\n", collect1[i]);
+    	collect2[i] = rand();
+    	printf("Value put into collect2 is: %d\n", collect2[i]);
+    	i++;
+    } //end
 
     puts("Finished creating data structures\n");
 
-    pthread_create( NULL, NULL, &collect1, (void *) 1 );
-    pthread_create( NULL, NULL, &collect2, (void *) 1 );
-    pthread_create( NULL, NULL, &reader1, (void *) 1 );
-    pthread_create( NULL, NULL, &reader2, (void *) 1 );
-    pthread_create( NULL, NULL, &reader3, (void *) 1 );
+    pthread_create( NULL, NULL, &collect1_task, (void *) 1 );
+    pthread_create( NULL, NULL, &collect2_task, (void *) 1 );
+    pthread_create( NULL, NULL, &reader1_task, (void *) 1 );
+    pthread_create( NULL, NULL, &reader2_task, (void *) 1 );
+    pthread_create( NULL, NULL, &reader3_task, (void *) 1 );
 
     pthread_join(2,NULL);
     pthread_join(3,NULL);
