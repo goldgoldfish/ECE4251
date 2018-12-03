@@ -1,6 +1,13 @@
 // For timers
 // https://www.qnx.com/developers/docs/6.4.0/neutrino/getting_started/s1_timer.html
 
+/*================================================================= /
+ * ECE 4251 Lab Project
+ * Author: Ben Wedemire
+ * Student ID: 3515624
+ * Date: 6/12/2018
+ * Description: Global variable initializations.
+  =================================================================*/
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,6 +47,16 @@ sem_t m2;
 sem_t m3;
 sem_t R3_rdy;
 
+/*================================================================= /
+ * ECE 4251 Lab Project
+ * Author: Ben Wedemire
+ * Student ID: 3515624
+ * Date: 6/12/2018
+ * Description: First Collector thread. Collects from global array 
+                and sends the data to Reader 1. 
+                It collects in XX time intervals.
+  =================================================================*/
+
 void* collect1_task(void){
 	puts("Collect 1 Active\n");
     if (sem_wait(&m1) == -1) {
@@ -61,6 +78,16 @@ void* collect1_task(void){
 
 	puts("Got into the memory\n");
 } //end collect1
+
+/*================================================================= /
+ * ECE 4251 Lab Project
+ * Author: Ben Wedemire
+ * Student ID: 3515624
+ * Date: 6/12/2018
+ * Description: Second Collector thread. Collects from global array 
+                and sends the data to Reader 2. 
+                It collects in XX time intervals.
+  =================================================================*/
 
 void* collect2_task(void){
 	puts("Collect 2 Active\n");
@@ -84,6 +111,15 @@ void* collect2_task(void){
 
 	puts("Got into the memory\n");
 } //end collect1
+
+/*================================================================= /
+ * ECE 4251 Lab Project
+ * Author: Chris Thomas
+ * Student ID: 3506872
+ * Date: 28/11/2018
+ * Description: First Reader thread. Waits to receive data from Collector 1, displays
+ * 				the received data to the console then sends the data to Reader 3.
+  =================================================================*/
 
 void* reader1_task(void){
 	puts("Reader 1 Active\n");
